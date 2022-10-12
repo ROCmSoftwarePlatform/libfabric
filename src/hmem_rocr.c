@@ -93,6 +93,11 @@ static struct rocr_ops rocr_ops = {
 
 #endif /* ENABLE_ROCR_DLOPEN */
 
+typedef struct rocr_ipc_handle {
+    hsa_amd_ipc_memory_t ipc;
+    size_t length;
+} rocr_ipc_handle_t;
+
 hsa_status_t ofi_hsa_amd_memory_lock(void *host_ptr, size_t size,
 				     hsa_agent_t *agents, int num_agents,
 				     void **agent_ptr)
@@ -273,6 +278,60 @@ bool rocr_is_addr_valid(const void *addr, uint64_t *device, uint64_t *flags)
 	}
 
 	return false;
+}
+
+
+int rocr_get_handle(void *dev_buf, void **handle)
+{
+	hsa_status_t hsa_ret;
+	hsa_amd_pointer_info_t info;
+	rocr_ipc_handle_t *handle_key = (rocr_ipc_handle_t*)*handle;
+
+	info.size = sizeof(hsa_amd_pointer_info_t);
+	hsa_ret = ofi_hsa_amd_pointer_info(dev_buf, &info, NULL, NULL, NULL);
+	if (hsa_ret != HSA_STATUS_SUCCESS) {
+		FI_WARN(&core_prov, FI_LOG_CORE,
+			"Failed to perform hsa_amd_pointer_info: %s\n",
+			ofi_hsa_status_to_string(hsa_ret));
+		return -FI_EINVAL;
+	}
+	hsa_ret = hsa_amd_ipc_memory_create(dev_buf, info.sizeInBytes, &handle_key->ipc);
+	if (hsa_ret != HSA_STATUS_SUCCESS) {
+		FI_WARN(&core_prov, FI_LOG_CORE,
+			"Failed to perform hsa_amd_ipc_memory_create: %s\n",
+			ofi_hsa_status_to_string(hsa_ret));
+		return -FI_EINVAL;
+	}
+	handle_key->length = info.sizeInBytes;
+	return FI_SUCCESS;
+}
+
+int rocr_open_handle(void **handle, uint64_t device, void **ipc_ptr)
+{
+	hsa_status_t hsa_ret;
+	rocr_ipc_handle_t *handle_key = (rocr_ipc_handle_t*)*handle;
+
+	hsa_ret = hsa_amd_ipc_memory_attach(&handle_key->ipc, handle_key->length, 0, NULL, ipc_ptr);
+	if (hsa_ret != HSA_STATUS_SUCCESS) {
+		FI_WARN(&core_prov, FI_LOG_CORE,
+			"Failed to perform hsa_amd_ipc_memory_attach: %s\n",
+			ofi_hsa_status_to_string(hsa_ret));
+		return -FI_EINVAL;
+	}
+	return FI_SUCCESS;
+}
+
+int rocr_close_handle(void *ipc_ptr)
+{
+	hsa_status_t hsa_ret;
+	hsa_ret = hsa_amd_ipc_memory_detach(ipc_ptr);
+	if (hsa_ret != HSA_STATUS_SUCCESS) {
+		FI_WARN(&core_prov, FI_LOG_CORE,
+			"Failed to perform hsa_amd_ipc_memory_attach: %s\n",
+			ofi_hsa_status_to_string(hsa_ret));
+		return -FI_EINVAL;
+	}
+	return FI_SUCCESS;
 }
 
 static int rocr_hmem_dl_init(void)
@@ -463,6 +522,17 @@ int rocr_host_unregister(void *ptr)
 	return -FI_EIO;
 }
 
+bool rocr_is_ipc_enabled(void)
+{
+	return true;
+}
+
+int rocr_get_ipc_handle_size(size_t *size)
+{
+	*size = sizeof(rocr_ipc_handle_t);
+	return FI_SUCCESS;
+}
+
 #else
 
 int rocr_copy_from_dev(uint64_t device, void *dest, const void *src,
@@ -492,12 +562,37 @@ bool rocr_is_addr_valid(const void *addr, uint64_t *device, uint64_t *flags)
 	return false;
 }
 
+int rocr_get_handle(void *dev_buf, void **handle)
+{
+	return -FI_ENOSYS;
+}
+
+int rocr_open_handle(void **handle, uint64_t device, void **ipc_ptr)
+{
+	return -FI_ENOSYS;
+}
+
+int rocr_close_handle(void *ipc_ptr)
+{
+	return -FI_ENOSYS;
+}
+
 int rocr_host_register(void *ptr, size_t size)
 {
 	return -FI_ENOSYS;
 }
 
 int rocr_host_unregister(void *ptr)
+{
+	return -FI_ENOSYS;
+}
+
+bool rocr_is_ipc_enabled(void)
+{
+	return false;
+}
+
+int cuda_get_ipc_handle_size(size_t *size)
 {
 	return -FI_ENOSYS;
 }
