@@ -142,6 +142,11 @@ int rocr_hmem_cleanup(void);
 bool rocr_is_addr_valid(const void *addr, uint64_t *device, uint64_t *flags);
 int rocr_host_register(void *ptr, size_t size);
 int rocr_host_unregister(void *ptr);
+int rocr_get_handle(void *dev_buf, void **handle);
+int rocr_open_handle(void **handle, uint64_t device, void **ipc_ptr);
+int rocr_close_handle(void *ipc_ptr);
+bool rocr_is_ipc_enabled(void);
+int rocr_get_ipc_handle_size(size_t *size);
 
 int cuda_copy_to_dev(uint64_t device, void *dev, const void *host, size_t size);
 int cuda_copy_from_dev(uint64_t device, void *host, const void *dev, size_t size);
