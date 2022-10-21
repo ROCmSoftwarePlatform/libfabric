@@ -86,7 +86,7 @@ struct ofi_hmem_ops hmem_ops[] = {
 		.close_handle = rocr_close_handle,
 		.host_register = rocr_host_register,
 		.host_unregister = rocr_host_unregister,
-		.get_base_addr = ofi_hmem_no_base_addr,
+		.get_base_addr = rocr_get_base_addr,
 		.is_ipc_enabled = rocr_is_ipc_enabled,
 		.get_ipc_handle_size = rocr_get_ipc_handle_size,
 	},

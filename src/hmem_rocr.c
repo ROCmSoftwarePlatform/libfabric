@@ -190,12 +190,12 @@ static int rocr_memcpy(void *dest, const void *src, size_t size)
 
 static int rocr_host_memory_ptr(void *host_ptr, void **ptr)
 {
-	hsa_amd_pointer_info_t info = {
-		.size = sizeof(info),
+	hsa_amd_pointer_info_t hsa_info = {
+		.size = sizeof(hsa_info),
 	};
 	hsa_status_t hsa_ret;
 
-	hsa_ret = ofi_hsa_amd_pointer_info((void *)host_ptr, &info, NULL, NULL,
+	hsa_ret = ofi_hsa_amd_pointer_info((void *)host_ptr, &hsa_info, NULL, NULL,
 					   NULL);
 	if (hsa_ret != HSA_STATUS_SUCCESS) {
 		FI_WARN(&core_prov, FI_LOG_CORE,
@@ -205,12 +205,12 @@ static int rocr_host_memory_ptr(void *host_ptr, void **ptr)
 		return -FI_EIO;
 	}
 
-	if (info.type != HSA_EXT_POINTER_TYPE_LOCKED)
+	if (hsa_info.type != HSA_EXT_POINTER_TYPE_LOCKED)
 		*ptr = host_ptr;
 	else
-		*ptr = (void *) ((uintptr_t) info.agentBaseAddress +
+		*ptr = (void *) ((uintptr_t) hsa_info.agentBaseAddress +
 				 (uintptr_t) host_ptr -
-				 (uintptr_t) info.hostBaseAddress);
+				 (uintptr_t) hsa_info.hostBaseAddress);
 
 	return FI_SUCCESS;
 }
@@ -284,25 +284,25 @@ bool rocr_is_addr_valid(const void *addr, uint64_t *device, uint64_t *flags)
 int rocr_get_handle(void *dev_buf, void **handle)
 {
 	hsa_status_t hsa_ret;
-	hsa_amd_pointer_info_t info;
+	hsa_amd_pointer_info_t hsa_info;
 	rocr_ipc_handle_t *handle_key = (rocr_ipc_handle_t*)*handle;
 
-	info.size = sizeof(hsa_amd_pointer_info_t);
-	hsa_ret = ofi_hsa_amd_pointer_info(dev_buf, &info, NULL, NULL, NULL);
+	hsa_info.size = sizeof(hsa_amd_pointer_info_t);
+	hsa_ret = ofi_hsa_amd_pointer_info(dev_buf, &hsa_info, NULL, NULL, NULL);
 	if (hsa_ret != HSA_STATUS_SUCCESS) {
 		FI_WARN(&core_prov, FI_LOG_CORE,
 			"Failed to perform hsa_amd_pointer_info: %s\n",
 			ofi_hsa_status_to_string(hsa_ret));
 		return -FI_EINVAL;
 	}
-	hsa_ret = hsa_amd_ipc_memory_create(dev_buf, info.sizeInBytes, &handle_key->ipc);
+	hsa_ret = hsa_amd_ipc_memory_create(dev_buf, hsa_info.sizeInBytes, &handle_key->ipc);
 	if (hsa_ret != HSA_STATUS_SUCCESS) {
 		FI_WARN(&core_prov, FI_LOG_CORE,
 			"Failed to perform hsa_amd_ipc_memory_create: %s\n",
 			ofi_hsa_status_to_string(hsa_ret));
 		return -FI_EINVAL;
 	}
-	handle_key->length = info.sizeInBytes;
+	handle_key->length = hsa_info.sizeInBytes;
 	return FI_SUCCESS;
 }
 
@@ -332,6 +332,27 @@ int rocr_close_handle(void *ipc_ptr)
 		return -FI_EINVAL;
 	}
 	return FI_SUCCESS;
+}
+
+int rocr_get_base_addr(const void *ptr, void **base, size_t *size)
+{
+	hsa_amd_pointer_info_t hsa_info = {
+		.size = sizeof(hsa_info),
+	};
+	hsa_status_t hsa_ret;
+
+	hsa_ret = ofi_hsa_amd_pointer_info((void *)ptr, &hsa_info, NULL, NULL,
+					   NULL);
+	if (hsa_ret == HSA_STATUS_SUCCESS) {
+		*base = (void *) hsa_info.agentBaseAddress;
+		*size = hsa_info.sizeInBytes;
+		return FI_SUCCESS;
+	}
+	FI_WARN(&core_prov, FI_LOG_CORE,
+		"Failed to perform hsa_amd_pointer_info: %s\n",
+		ofi_hsa_status_to_string(hsa_ret));
+
+	return -FI_EIO;
 }
 
 static int rocr_hmem_dl_init(void)
@@ -573,6 +594,11 @@ int rocr_open_handle(void **handle, uint64_t device, void **ipc_ptr)
 }
 
 int rocr_close_handle(void *ipc_ptr)
+{
+	return -FI_ENOSYS;
+}
+
+int rocr_get_base_addr(const void *ptr, void **base, size_t *size)
 {
 	return -FI_ENOSYS;
 }
