@@ -86,6 +86,12 @@ cudaError_t ofi_cudaFree(void *ptr);
 
 #include <hsa/hsa_ext_amd.h>
 
+typedef struct rocr_ipc_handle {
+    hsa_amd_ipc_memory_t ipc;
+    size_t length;
+} rocr_ipc_handle_t;
+
+
 /* Libfabric support ROCr operations. */
 
 hsa_status_t ofi_hsa_memory_copy(void *dst, const void *src, size_t size);

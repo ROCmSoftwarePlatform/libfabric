@@ -44,7 +44,7 @@
 struct rocr_ops {
 	hsa_status_t (*hsa_memory_copy)(void *dst, const void *src,
 					size_t size);
-	hsa_status_t (*hsa_amd_pointer_info)(void *ptr,
+	hsa_status_t (*hsa_amd_pointer_info)(const void *ptr,
 					     hsa_amd_pointer_info_t *info,
 					     void *(*alloc)(size_t),
 					     uint32_t *num_agents_accessible,
@@ -92,11 +92,6 @@ static struct rocr_ops rocr_ops = {
 };
 
 #endif /* ENABLE_ROCR_DLOPEN */
-
-typedef struct rocr_ipc_handle {
-    hsa_amd_ipc_memory_t ipc;
-    size_t length;
-} rocr_ipc_handle_t;
 
 hsa_status_t ofi_hsa_amd_memory_lock(void *host_ptr, size_t size,
 				     hsa_agent_t *agents, int num_agents,
@@ -285,7 +280,7 @@ int rocr_get_handle(void *dev_buf, void **handle)
 {
 	hsa_status_t hsa_ret;
 	hsa_amd_pointer_info_t hsa_info;
-	rocr_ipc_handle_t *handle_key = (rocr_ipc_handle_t*)*handle;
+	rocr_ipc_handle_t handle_key;
 
 	hsa_info.size = sizeof(hsa_amd_pointer_info_t);
 	hsa_ret = ofi_hsa_amd_pointer_info(dev_buf, &hsa_info, NULL, NULL, NULL);
@@ -295,21 +290,24 @@ int rocr_get_handle(void *dev_buf, void **handle)
 			ofi_hsa_status_to_string(hsa_ret));
 		return -FI_EINVAL;
 	}
-	hsa_ret = hsa_amd_ipc_memory_create(dev_buf, hsa_info.sizeInBytes, &handle_key->ipc);
+
+	hsa_ret = hsa_amd_ipc_memory_create(dev_buf, hsa_info.sizeInBytes, &(handle_key.ipc));
 	if (hsa_ret != HSA_STATUS_SUCCESS) {
 		FI_WARN(&core_prov, FI_LOG_CORE,
 			"Failed to perform hsa_amd_ipc_memory_create: %s\n",
 			ofi_hsa_status_to_string(hsa_ret));
 		return -FI_EINVAL;
 	}
-	handle_key->length = hsa_info.sizeInBytes;
+	handle_key.length = hsa_info.sizeInBytes;
+	((rocr_ipc_handle_t*)handle)->ipc = handle_key.ipc;
+	((rocr_ipc_handle_t*)handle)->length = handle_key.length;
 	return FI_SUCCESS;
 }
 
 int rocr_open_handle(void **handle, uint64_t device, void **ipc_ptr)
 {
 	hsa_status_t hsa_ret;
-	rocr_ipc_handle_t *handle_key = (rocr_ipc_handle_t*)*handle;
+	rocr_ipc_handle_t *handle_key = (rocr_ipc_handle_t*)handle;
 
 	hsa_ret = hsa_amd_ipc_memory_attach(&handle_key->ipc, handle_key->length, 0, NULL, ipc_ptr);
 	if (hsa_ret != HSA_STATUS_SUCCESS) {
@@ -343,7 +341,7 @@ int rocr_get_base_addr(const void *ptr, void **base, size_t *size)
 
 	hsa_ret = ofi_hsa_amd_pointer_info((void *)ptr, &hsa_info, NULL, NULL,
 					   NULL);
-	if (hsa_ret == HSA_STATUS_SUCCESS) {
+	if (hsa_ret == HSA_STATUS_SUCCESS && hsa_info.type == HSA_EXT_POINTER_TYPE_HSA) {
 		*base = (void *) hsa_info.agentBaseAddress;
 		*size = hsa_info.sizeInBytes;
 		return FI_SUCCESS;
@@ -618,7 +616,7 @@ bool rocr_is_ipc_enabled(void)
 	return false;
 }
 
-int cuda_get_ipc_handle_size(size_t *size)
+int rocr_get_ipc_handle_size(size_t *size)
 {
 	return -FI_ENOSYS;
 }

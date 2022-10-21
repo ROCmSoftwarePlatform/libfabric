@@ -512,7 +512,7 @@ static int smr_progress_ipc(struct smr_cmd *cmd, enum fi_hmem_iface iface,
 		      (uintptr_t) cmd->msg.data.ipc_info.offset;
 
 	if (cmd->msg.hdr.op == ofi_op_read_req) {
-		hmem_copy_ret = ofi_copy_from_hmem_iov(ptr, cmd->msg.hdr.size,
+  	         hmem_copy_ret = ofi_copy_from_hmem_iov(ptr, cmd->msg.hdr.size,
 						       cmd->msg.data.ipc_info.iface,
 						       device, iov, iov_count, 0);
 	} else {

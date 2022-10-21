@@ -429,7 +429,6 @@ static int smr_format_ipc(struct smr_cmd *cmd, void *ptr, size_t len,
 
 	cmd->msg.data.ipc_info.base_address = (uintptr_t) base;
 	cmd->msg.data.ipc_info.offset = (uintptr_t) ptr - (uintptr_t) base;
-
 	return FI_SUCCESS;
 }
 
