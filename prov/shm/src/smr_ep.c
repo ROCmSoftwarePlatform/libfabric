@@ -588,6 +588,7 @@ int smr_select_proto(void **desc, size_t iov_count,
 	if (iov_count == 1 && desc && desc[0]) {
 		smr_desc = (struct ofi_mr *) *desc;
 		iface = smr_desc->iface;
+		smr_desc->flags = FI_HMEM_DEVICE_ONLY;
 		use_ipc = ofi_hmem_is_ipc_enabled(iface) &&
 				smr_desc->flags & FI_HMEM_DEVICE_ONLY &&
 				!(op_flags & FI_INJECT);

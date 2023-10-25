@@ -69,7 +69,7 @@ int ofi_mr_map_insert(struct ofi_mr_map *map, const struct fi_mr_attr *attr,
 	if (!(map->mode & FI_MR_VIRT_ADDR))
 		item->offset = (uintptr_t) attr->mr_iov[0].iov_base;
 
-	if (map->mode & FI_MR_PROV_KEY)
+	//if (map->mode & FI_MR_PROV_KEY)
 		item->requested_key = map->key++;
 
 	ret = ofi_rbmap_insert(map->rbtree, &item->requested_key, item, NULL);
